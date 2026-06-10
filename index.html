@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>I AM GLORIA | Longterm Interactive App v27</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <meta name="theme-color" content="#090016" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="GLORIA" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <!-- 样式已拆分到 css/style.css，便于维护。 -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <div class="scanline"></div>
+  <div class="gloria-stage-backdrop" id="gloriaStageBackdrop" aria-hidden="true">
+    <div class="gloria-wordmark">GLORIA</div>
+    <div class="gloria-wordmark alt">I AM GLORIA</div>
+    <div class="beam beam-left"></div>
+    <div class="beam beam-right"></div>
+    <div class="light-sea"></div>
+  </div>
+
+  <div class="entry-overlay" id="entryOverlay">
+    <div class="entry-panel">
+      <div class="brand">
+        <div class="orb"></div>
+        <div>
+          <h1>I AM GLORIA</h1>
+          <p>INTERACTIVE CYBER DIAMOND APP</p>
+        </div>
+      </div>
+      <div class="entry-hero-copy">
+        <div class="entry-kicker">GLORIA IMMERSIVE STAGE</div>
+        <p>一个紫色赛博钻石舞台。张开手掌进入回忆星环，聚拢指尖让照片降临中央大屏。</p>
+      </div>
+      <div class="entry-main-actions">
+        <button id="entryGestureBtn" class="app-primary-action">进入 GLORIA 世界</button>
+      </div>
+      <div class="entry-secondary-actions" aria-label="辅助功能">
+        <button id="entryDirectPhotoBtn" type="button">照片模式</button>
+        <button id="entryShowcaseBtn" type="button">展演模式</button>
+        <button id="entryPhotoManageBtn" type="button">相册管理</button>
+        <label class="upload-label" for="photoInput">上传照片</label>
+        <button id="entrySettingsBtn" type="button">控制台设置</button>
+        <button id="entryCalibrateBtn" type="button">手势校准</button>
+        <button id="entryFullscreenBtn">全屏显示</button>
+        <button id="entryRestartBtn" type="button">重置开场</button>
+        <button id="entryTriggerBtn" type="button">演示</button>
+      </div>
+      <div class="entry-note">建议全屏展示：先进入舞台，再张开手掌唤出照片星环；也可以直接使用展演模式自动播放。</div>
+      <div class="app-version-mark">I AM GLORIA · IMMERSIVE STAGE RELEASE</div>
+      <input id="photoInput" type="file" accept="image/*" multiple />
+      <input id="photoBackupInput" type="file" accept="application/json,.json" />
+    </div>
+  </div>
+
+  <section class="hud" id="guideHud">
+    <div class="brand">
+      <div class="orb"></div>
+      <div>
+        <h1>I AM GLORIA</h1>
+        <p>手势状态</p>
+      </div>
+    </div>
+    <div class="guide-card">
+      <p class="guide-title">手势说明</p>
+      <ul class="guide-list">
+        <li>五指分开 / 张开手掌：进入照片模式</li>
+        <li>保持五指分开并左右移动：照片与钻石跟随大幅滑动</li>
+        <li>五个指尖聚拢：直接选择当前照片并放大展示</li>
+        <li>展示时再次五个指尖聚拢：退出展示</li>
+      </ul>
+      <p class="guide-status" id="statusText">点击“开启手势”进入快速星际开场，开场完成后张开手掌进入照片模式。</p>
+      <div class="guide-meter-row">
+        <span>GESTURE</span>
+        <div id="gestureMeter"><span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="photoWall"></div>
+  <div id="selectionFlash" aria-hidden="true"></div>
+  <div id="handCursor"></div>
+  <div id="gesturePulseHint" class="gesture-pulse-hint" aria-live="polite">等待手势识别</div>
+  <div id="stageRitualOverlay" class="stage-ritual-overlay" aria-hidden="true">
+    <div class="ritual-shell">
+      <div class="ritual-ring"></div>
+      <div id="stageRitualCount" class="ritual-count">3</div>
+      <div id="stageRitualLabel" class="ritual-label">I AM GLORIA</div>
+    </div>
+  </div>
+  <div id="demoBadge" class="demo-badge">展演模式运行中</div>
+
+  <div id="selectedViewer" aria-hidden="true">
+    <div class="selected-energy-ring"></div>
+    <div class="selected-frame">
+      <img id="selectedImage" alt="选中的照片" />
+      <div class="selected-caption">
+        <span id="selectedCaption">GLORIA MEMORY</span>
+        <button id="closeSelectedBtn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="stopDemoBtn" type="button">退出演示模式</button>
+  <button id="photoManageBtn" class="photo-manage-floating" type="button">照片管理</button>
+
+  <div id="photoManager" class="photo-manager" aria-hidden="true">
+    <div class="photo-manager-panel">
+      <div class="photo-manager-head">
+        <div>
+          <h2 class="photo-manager-title">相册管理</h2>
+          <div class="photo-manager-count" id="photoManagerCount">已保存 0 / 24</div>
+        </div>
+        <button id="photoManagerCloseBtn" type="button">关闭</button>
+      </div>
+      <div class="photo-manager-actions">
+        <div class="controls">
+          <button id="photoManagerAddBtn" type="button">添加照片</button>
+          <button id="photoClearAllBtn" type="button">清空相册</button>
+        </div>
+        <div class="album-toolbar-extra">
+          <button id="photoBatchDeleteBtn" type="button">批量删除选中</button>
+          <button id="photoExportBtn" type="button">导出备份</button>
+          <button id="photoImportBtn" type="button">导入备份</button>
+        </div>
+      </div>
+      <div class="photo-manager-hint" id="photoManagerHint">照片会自动压缩并保存在当前浏览器本地记忆库中。下次用同一个浏览器打开这个 HTML，会自动恢复已保存照片。</div>
+      <div class="photo-manager-grid" id="photoManagerGrid"></div>
+    </div>
+  </div>
+
+
+  <button id="settingsFloatingBtn" class="app-panel-floating" type="button">设置</button>
+  <button id="calibrationFloatingBtn" class="app-panel-floating" type="button">手势校准</button>
+
+  <div id="settingsModal" class="app-modal" aria-hidden="true">
+    <div class="app-modal-panel">
+      <div class="app-modal-head">
+        <div>
+          <h2 class="app-modal-title">设置</h2>
+          <p class="app-modal-subtitle">这些参数会自动保存。调完以后不用再改代码。</p>
+        </div>
+        <button id="settingsCloseBtn" type="button">关闭</button>
+      </div>
+      <div class="settings-grid">
+        <section class="settings-section">
+          <h3 class="settings-section-title">基础设置</h3>
+          <div class="settings-section-grid">
+            <div class="setting-row"><label>画质模式</label><select id="qualityModeInput"><option value="smooth">流畅模式</option><option value="high">高画质模式</option></select></div>
+            <div class="setting-row"><label>照片环速度 <span id="photoSpeedValue"></span></label><input id="photoSpeedInput" type="range" min="0" max="2" step="0.05"></div>
+            <div class="setting-row"><label>手势滑动灵敏度 <span id="slideSensitivityValue"></span></label><input id="slideSensitivityInput" type="range" min="0.5" max="2.2" step="0.05"></div>
+            <div class="setting-row toggle"><label>默认显示视频窗口</label><input id="showCameraInput" type="checkbox"></div>
+          </div>
+        </section>
+        <section class="settings-section">
+          <h3 class="settings-section-title">高级视觉</h3>
+          <div class="settings-section-grid">
+            <div class="setting-row"><label>聚拢选择灵敏度 <span id="pinchSensitivityValue"></span></label><input id="pinchSensitivityInput" type="range" min="0.5" max="2.0" step="0.05"></div>
+            <div class="setting-row"><label>照片显示数量 <span id="photoVisibleValue"></span></label><input id="photoVisibleInput" type="range" min="4" max="18" step="1"></div>
+            <div class="setting-row"><label>粒子亮度 <span id="particleBrightnessValue"></span></label><input id="particleBrightnessInput" type="range" min="0.55" max="1.35" step="0.05"></div>
+            <div class="setting-row"><label>背景光强度 <span id="bgIntensityValue"></span></label><input id="bgIntensityInput" type="range" min="0" max="1.5" step="0.05"></div>
+          </div>
+        </section>
+        <section class="settings-section">
+          <h3 class="settings-section-title">启动设置</h3>
+          <div class="settings-section-grid">
+            <div class="setting-row"><label>启动方式</label><select id="startupModeInput"><option value="sequence">播放开场</option><option value="stage">直接进入舞台</option><option value="photo">直接进入照片模式</option></select></div>
+          </div>
+        </section>
+      </div>
+      <div class="settings-actions">
+        <button id="settingsResetBtn" type="button">恢复默认</button>
+        <button id="settingsSaveBtn" type="button" class="app-primary-action">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="calibrationModal" class="app-modal" aria-hidden="true">
+    <div class="app-modal-panel">
+      <div class="app-modal-head">
+        <div>
+          <h2 class="app-modal-title">手势校准</h2>
+          <p class="app-modal-subtitle">先开启手势，然后按步骤记录你的张开和聚拢手势。校准值会自动保存。</p>
+        </div>
+        <button id="calibrationCloseBtn" type="button">关闭</button>
+      </div>
+      <div class="calibration-grid">
+        <div class="calibration-card">
+          <h3>第一步：张开五指</h3>
+          <p class="app-modal-subtitle">把手完全张开，对准摄像头，稳定 1 秒后点击记录。</p>
+          <button id="recordOpenGestureBtn" type="button" class="app-primary-action">记录张开</button>
+        </div>
+        <div class="calibration-card">
+          <h3>第二步：五指聚拢</h3>
+          <p class="app-modal-subtitle">把五个指尖聚拢，稳定 1 秒后点击记录。</p>
+          <button id="recordPinchGestureBtn" type="button" class="app-primary-action">记录聚拢</button>
+        </div>
+      </div>
+      <div class="calibration-live" id="calibrationLiveInfo">等待手势数据...</div>
+      <div class="calibration-actions">
+        <button id="calibrationResetBtn" type="button">恢复默认</button>
+        <button id="calibrationStartGestureBtn" type="button">开启手势</button>
+      </div>
+    </div>
+  </div>
+
+
+  <aside class="camera-panel" id="cameraPanel">
+    <div class="camera-head" id="cameraHead">
+      <div class="cam-head-left"><span>手势摄像头</span></div>
+      <div class="cam-head-right"><span id="camState">OFF</span><button id="cameraCloseBtn" class="cam-mini-btn" type="button" aria-label="隐藏视频窗口">隐藏</button></div>
+    </div>
+    <video id="cameraVideo" playsinline muted></video>
+    <div class="resize-handle" id="resizeHandle"></div>
+  </aside>
+  <button id="cameraToggleBtn" type="button" aria-label="显示视频窗口"><span>显示视频窗口</span></button>
+
+  <div class="center-title">五指分开进入照片模式 · 张开手掌左右移动大幅滑动 · 五个指尖聚拢直接选择照片 · 展示中再次聚拢退出</div>
+
+<!-- 主交互逻辑已拆分到 js/main.js。 -->
+<script src="js/main.js"></script>
+</body>
+</html>
